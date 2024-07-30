@@ -1,0 +1,350 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var geometry = /* color: #23cba7 */ee.Geometry.MultiPoint();
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+/*
+Description: Source code for Syria Land and Water Monitoring app.
+Contributors: pedro.candido@reach-initiative.org, esther.barvels@reach-initiative.org, victor.olsen@reach-initiative.org
+
+*/  
+
+// MODULES
+var Utils = require('users/reachsyriagee/Modules:Utilities')
+var Interface = require('users/reachsyriagee/Modules:Interface_public_v7')
+
+// CONSTANTS (asset paths and visualisation dictionaries)
+var baseRepo = "users/reachsyriagee/"
+
+var imageNameBase_ndvi = "projects/ee-reachsyriagee/assets/SY_NDVI_SR_TOA-17-18/SY_NDVI_" // NDVI TOA until Dec 2018 (inclusive), from then SR 
+var imageNameBase_water = baseRepo + 'SY_Water/final/water_'
+var imageNameBase_CHIRPS = baseRepo + 'SY_Rainfall/SY_CHIRPS_'
+var imageNameBase_SPI = baseRepo +  'SY_SPI/SPI1/SY_SPI_'
+var imageNameBase_LST = 'projects/ee-reachsyriagee/assets/SY_LST/LST_anom_monthly_base_00_16_MODIS_250m/SY_LST_anom_'
+var imageNameBase_crop = baseRepo + 'SY_Cropland/UNOSAT_crop_woodVeg_masked_'
+var imageNameBase_crop_change = baseRepo + 'SY_Cropland/UNOSAT_crop_change_woodVeg_masked_'
+var imageNameBase_groundwater = 'projects/ee-reachsyriagee/assets/SY_Groundwater/GLDAS_anomaly_monthly_base0409/SY_GWS_Anom_';
+                      
+var syrAdm0 = ee.FeatureCollection(baseRepo + "Admin_Areas/syr_admbnda_adm0_uncs_unocha_20201217"); 
+var syrAdm3  = ee.FeatureCollection(baseRepo + "Admin_Areas/syr_adm3"); 
+
+var palette_NDVI = ['ffffe5','f7fcb9','d9f0a3','addd8e','78c679','41ab5d','238443','005a32'] // light yellow to dark green
+var visParamsNDVI = {bands: ["NDVI"], max: 0.8, min: 0.1, opacity: 1, palette: palette_NDVI} 
+var waterVisParams = {bands: ["Water"], palette: ["ffffff00","ffffff00",'blue'], min:1, max:3}
+var CHIRPSVisParam = {"opacity":1,"bands":["Precipitation"],"min":0,"max":500,"palette":["ffffff","0000ff"]};
+var colorPanel = '#e6eef7'
+
+// SELECT DATE PARAMETERS 
+var startYear = 2017
+var endYear = 2024 
+var endMonth = 5
+
+// CREATE IMAGE COLLECTIONS FROM ASSETS
+var NDVI_imgCol = Utils.generateCollectionFromAssets(imageNameBase_ndvi,startYear,endYear,endMonth,true);
+var water_imgCol= Utils.generateCollectionFromAssets(imageNameBase_water,startYear,endYear,endMonth,false).map(function(image){return image.selfMask().select(["classification"],["Water"]).clip(syrAdm0)}); // clipped because dataset extends national border of Syria
+var CHIRPS_imgCol = Utils.generateCollectionFromAssets(imageNameBase_CHIRPS,startYear,endYear,endMonth,false); // if CHIRPS is not uploaded yet, use endMonth-1
+var SPI_imgCol = Utils.generateCollectionFromAssets_SPImock(imageNameBase_SPI,startYear,endYear,endMonth,false);
+var LST_imgCol = Utils.generateCollectionFromAssets(imageNameBase_LST,startYear,endYear,endMonth,false);
+var cropland_imgCol = Utils.generateCollectionCropland(imageNameBase_crop,startYear,2022);
+var cropChange_imgCol = Utils.generateCollectionCropland_change(imageNameBase_crop_change)
+var GW_imgCol = Utils.generateCollectionFromAssets_startM(imageNameBase_groundwater,2003,2,2024,2,false).map(function(img){ return img.rename('GWS')});
+
+//SETTING THE UI PANEL
+var panel = ui.Panel({style: {width: '400px', backgroundColor:colorPanel}})
+var headlinePanel = ui.Panel({style: { margin: '2px', padding: '0px',position: 'top-center', backgroundColor:colorPanel}});
+
+var methods_link = ui.Label({value:'Methodology and Data Description'
+  , style: {
+      position: 'bottom-center',
+      color: 'blue',
+      backgroundColor: colorPanel,
+        // fontWeight: 'light',
+      fontSize: '14px',
+      // margin: '0 0 4px 0',
+      padding: '2px',
+      whiteSpace: 'pre'}}).setUrl('https://remote-sensing-projects.github.io/syr-land-water-monitoring/')    
+    
+panel.widgets().set(0,headlinePanel); 
+panel.widgets().set(1, methods_link);
+
+//  DATA SERIES BUTTONS
+
+// 1. Monthly datasets
+var buttonMonthly = ui.Button('Monthly NDVI and surface water');
+buttonMonthly.onClick(function() {
+
+  if (Map.widgets().length() == 2) { // only load if it is not the same dataseries to be displayed
+
+    Map.widgets().reset() // resets legend 
+    var layers = Map.layers()
+    var topLayer = Interface.getTopLayer()
+    var adminActivated = Interface.check_if_adminLayer(layers)
+    
+    Map.layers().reset()   
+
+    var yearSelect = Interface.createYearDropDown(startYear, endYear)
+    yearSelect.onChange(showMosaicYear)
+    Map.add(yearSelect);
+    
+    var monthSelect = Interface.createMonthDropDown(endYear, endMonth)
+    monthSelect.onChange(showMosaicMonth)
+    Map.add(monthSelect);
+    
+    for(var i =0; i < collections.length; i++){
+          var collection = collections[i]
+          var label = labels[i]
+          var visParam = visParams[i]
+          var date = ee.Date(endYear+"-"+endMonth) // show the latest map for each collection
+          var mosaic =  collections[i].filterDate(date)
+      
+          var layer = ui.Map.Layer(mosaic, visParam, label + endYear+"; Month: " + endMonth);
+          Map.layers().set(i, layer);
+      }
+      
+      if (adminActivated[0] === true){
+         Map.layers().set(2, adminActivated[1])
+      }
+      
+      Map.layers().set(3, topLayer) // constant layer (national border)
+      Interface.createAndSetLegend(legendPaletteNDVI,legendNamesNDVI,4)     
+  }
+})
+
+// 2. Annual cropland change data sets
+var vis_crop = {"opacity":1,"bands":["Cropland"],"min":1,"max":3,"palette":["cb120c","cf9b28", "3da341"]}
+var crop_change_21_22 = cropChange_imgCol.filter(ee.Filter.eq('year_before', '2021')).first() // 20/21 to 21/22
+var layer_crop = ui.Map.Layer(crop_change_21_22, vis_crop, "Cropland change 2021-2022");
+
+var showCropMap = function(timeperiod) {
+  
+      var string = timeperiod.substring(0, 4)
+      var img = cropChange_imgCol.filterMetadata('year_before', 'equals', string).first()
+      var layer = ui.Map.Layer(img, vis_crop, 'Cropland change '+timeperiod );
+      Map.layers().set(0, layer);    
+};
+
+var buttonCropland = ui.Button('Annual cropland change');
+buttonCropland.onClick(function() {
+
+  if (Map.widgets().length() == 3) { //only load if water/NDVI dataseries is shown
+  Map.widgets().reset() // resets legend 
+  
+  var layers = Map.layers()
+  var topLayer = Interface.getTopLayer()  
+
+  var adminActivated = Interface.check_if_adminLayer(layers)
+
+  Map.layers().remove(layers.get(0)) // remove NDVI and water (lowest layers)
+  Map.layers().remove(layers.get(0))
+  Map.layers().set(0, layer_crop)
+  
+  if (adminActivated[0] === true){
+    Map.layers().set(1, adminActivated[1])
+  }
+  Map.layers().set(2, topLayer) // Constant layer (national border)
+
+    var timeperiodSelect = Interface.createTimePeriodDropDown()
+  timeperiodSelect.onChange(showCropMap)
+  Map.add(timeperiodSelect);
+  Interface.createAndSetLegend(legendPaletteCrop,legendNamesCrop,3)
+  }
+});
+
+
+// DESCRIPTION PANELS (right side)
+var dataSeriesPanel = ui.Panel({
+    widgets: [
+      ui.Label('Select the type of map', {fontSize: '16px', fontWeight: 'bold',backgroundColor: colorPanel}),
+      ui.Label('• For NDVI and surface water, the month and year can be adjusted in the drop down menu on top of map.', {fontSize: '16px', backgroundColor: colorPanel}),
+      ui.Label('• For cropland change, comparison for consecutive seasons between 2017 to 2022 are available.', {fontSize: '16px', backgroundColor: colorPanel}),
+      ui.Panel([buttonMonthly, buttonCropland  ], ui.Panel.Layout.flow('horizontal'), {backgroundColor: colorPanel})
+    ],
+    style: {backgroundColor: colorPanel}
+  });
+
+var description_selectButtons = ui.Panel({
+    widgets: [
+      ui.Label('Generate analysis chart', {fontSize: '16px', fontWeight: 'bold', backgroundColor: colorPanel}),
+      ui.Label('• Draw your own polgyon (click on the map), OR',  {fontSize: '16px', backgroundColor: colorPanel}),
+      ui.Label('• Select an administrative area below (double-click).', {fontSize: '16px', backgroundColor: colorPanel}),
+      ui.Label('To download the time series, click on top right corner of the chart.', {fontSize: '12px', backgroundColor: colorPanel}),
+      ],
+    style: {margin: '20px 0 0 0', backgroundColor: colorPanel}
+})
+
+var admAreaPanel_description = ui.Panel({
+    widgets: [
+      ui.Label('• Select an administrative area (select button above and double-click) OR,', {fontSize: '16px', backgroundColor: colorPanel}),
+      ui.Label('• Draw your own polgyon (click on the map).',  {fontSize: '16px', backgroundColor: colorPanel}),
+      ui.Label('To download the time series, click on top right corner of the chart.', {fontSize: '12px', backgroundColor: colorPanel}),
+      ],
+    style: {backgroundColor: colorPanel}
+})
+
+// ADMINISTRATIVE AREA CHART AND ZOOM TOOL
+var collections_graph =  [NDVI_imgCol, cropland_imgCol, water_imgCol, GW_imgCol, CHIRPS_imgCol, SPI_imgCol, LST_imgCol ]
+var admAttributeNames = ["admin1Name","admin2Name","admin3Name"]
+
+var placeHolders = ['Select Governorate','Select District','Select Sub-district']
+
+var admAreaPanel = ui.Panel({
+  style: {width: '400px', backgroundColor:colorPanel, padding: '5px 5px'},
+  layout: ui.Panel.Layout.flow('horizontal'),
+})
+
+var buildAdmWidgets = function(){
+var selectAdm1 = Interface.buildAdmAreaWidget(admAttributeNames, placeHolders, 1, collections_graph, syrAdm3, panel, admAreaPanel)
+admAreaPanel.widgets().set(0, selectAdm1);
+
+var selectAdm2 = Interface.buildAdmAreaWidget(admAttributeNames, placeHolders, 2, collections_graph, syrAdm3, panel, admAreaPanel)
+admAreaPanel.widgets().set(1, selectAdm2);
+
+var selectAdm3 = Interface.buildAdmAreaWidget(admAttributeNames, placeHolders, 3, collections_graph, syrAdm3, panel, admAreaPanel)
+admAreaPanel.widgets().set(2, selectAdm3);
+}
+buildAdmWidgets();
+
+panel.widgets().set(2, dataSeriesPanel);
+panel.widgets().set(3, description_selectButtons);
+panel.widgets().set(4, admAreaPanel);
+ui.root.add(panel); 
+
+// GEOMETRY DRAWING TOOL
+var drawingTools = Map.drawingTools().setShown(false); // turn off default drop dow menu 
+
+while (drawingTools.layers().length() > 0) {
+  var layer = drawingTools.layers().get(0);
+  drawingTools.layers().remove(layer);
+}
+
+var dummyGeo = ui.Map.GeometryLayer({geometries: null, name: 'geometry', color: '23cba7'});
+drawingTools.layers().add(dummyGeo);
+
+function chartGeometry() { 
+  var aoi = drawingTools.layers().get(0).getEeObject();
+
+  drawingTools.setShape(null);
+  
+  var NDVI_chart = Interface.chartSeries_NDVI("Normalized Difference Vegetation Index","NDVI",aoi,NDVI_imgCol)
+  panel.widgets().set(5, NDVI_chart);
+
+  var cropChart = Interface.chartSeries_cropland("Cropland Area","Cropland (km²)",aoi, cropland_imgCol)
+  panel.widgets().set(6, cropChart);
+  
+  var waterChart = Interface.chartSeries_water("Surface Water Area", "Surface Water (m²)",aoi,water_imgCol)
+  panel.widgets().set(7, waterChart);
+  
+  var GW_Chart = Interface.chartSeries_GW("Groundwater Storage Anomaly", "GWS Anomaly (mm)",aoi,GW_imgCol)
+  panel.widgets().set(8, GW_Chart);
+  
+  var precipChart = Interface.chartSeries_precip("Precipitation", "Precipitation (mm)",aoi, CHIRPS_imgCol)
+  panel.widgets().set(9, precipChart);
+  
+  var SPIChart = Interface.chartSeries_SPI("Standard Precipitation Index", "SPI",aoi, SPI_imgCol)
+  panel.widgets().set(10, SPIChart);
+  
+  var LSTChart = Interface.chartSeries_LST("Land Surface Temperature Anomaly", "LST Anomaly (°C)",aoi, LST_imgCol)
+  panel.widgets().set(11, LSTChart);  
+  
+  Interface.drawPolygon(drawingTools)
+}
+
+drawingTools.onDraw(ui.util.debounce(chartGeometry, 500));
+
+Interface.drawPolygon(drawingTools)
+
+
+////////////////////////// MAP ///////////////////////////////////////
+// CREATE WIDGETS TO DISPLAY COMPOSITES (DATE SLIDERS AND DROPDOWNS)
+var collections =  [NDVI_imgCol, water_imgCol];
+
+var labels = ["NDVI - Year: ","Water - Year: "];
+var visParams = [visParamsNDVI, waterVisParams];
+
+var showMosaicYear = function(year) {
+    for(var i =0; i < collections.length; i++){
+      var collection = collections[i];
+      var label = labels[i];
+      var visParam = visParams[i];
+      var month = Interface.getMonth(monthSelect);
+      if(month === null){ // if year select button first selected (after app was loaded) and no month selected yet
+        month = endMonth
+        monthSelect.setValue(""+endMonth)
+      }
+      var date = ee.Date(year+"-"+month);
+      var mosaic =  collections[i].filterDate(date);
+      var layer = ui.Map.Layer(mosaic, visParam, label + year+"; Month: "+ month );
+      Map.layers().set(i, layer);
+     
+    }
+};
+
+var showMosaicMonth = function(month) {
+  // print(Map.widgets().length)
+  
+    for(var i =0; i < collections.length; i++){
+      var collection = collections[i];
+      var label = labels[i];
+      var visParam = visParams[i];
+      var year = Interface.getYear(yearSelect);
+      if(year === null){
+        year = endYear;
+        yearSelect.setValue(""+endYear);
+      }
+      var date = ee.Date(year+"-"+month);
+      var mosaic =  collections[i].filterDate(date);
+      // print('mosaic size', mosaic.size());
+      var layer = ui.Map.Layer(mosaic, visParam, label + year+"; Month: " + month );
+      Map.layers().set(i, layer);
+    }  
+
+}; 
+
+var yearSelect = Interface.createYearDropDown(startYear, endYear);
+yearSelect.onChange(showMosaicYear);
+Map.add(yearSelect);
+
+var monthSelect = Interface.createMonthDropDown(endYear, endMonth);
+monthSelect.onChange(showMosaicMonth);
+Map.add(monthSelect);
+
+for(var i =0; i < collections.length; i++){
+      var collection = collections[i];
+      var label = labels[i];
+      var visParam = visParams[i];
+      var date = ee.Date(endYear+"-"+endMonth);
+      var mosaic =  collections[i].filterDate(date);
+
+      var layer = ui.Map.Layer(mosaic, visParam, label + endYear+"; Month: " + endMonth );
+      Map.layers().set(i, layer);
+
+  }
+  
+
+// SETTING LEGEND  ELEMENTS
+var legendPaletteNDVI =[ palette_NDVI[0], palette_NDVI[3], palette_NDVI[7], '0000ff'];
+
+var legendNamesNDVI = ['NDVI: 0 ','NDVI: 0.4','NDVI: 0.8', "Water"];
+Interface.createAndSetLegend(legendPaletteNDVI,legendNamesNDVI,4);
+
+var legendPaletteCrop =["cb120c","cf9b28", "3da341"];
+var legendNamesCrop = ['Lost ','Stable','New'];
+
+// CONFIGURE MAP
+// Create an empty image into which to paint the features, cast to byte.
+var empty = ee.Image().byte();
+
+// Paint all the polygon edges with the same number and width, display.
+var outline = empty.paint({
+  featureCollection: syrAdm0,
+  color: 1,
+  width: 2
+});
+
+
+var layer = ui.Map.Layer(outline, {}, 'Syria - National Border');
+Map.layers().set(4, layer);
+
+Map.style().set('cursor', 'crosshair');
+
+Map.setOptions('HYBRID',{} ,  ['HYBRID', "TERRAIN", "ROADMAP"]);
+Map.setCenter(37,35, 7)
+// Map.setControlVisibility({zoomControl: false})
