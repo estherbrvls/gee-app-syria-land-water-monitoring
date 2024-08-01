@@ -1,0 +1,683 @@
+var chartSeries_NDVI = function(varString, varStringAbbrev, geo, imageCollect) {
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.mean(), 100)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varStringAbbrev, viewWindow: {min:0, max: 0.7}},
+        // hAxis: { title: 'Time' },
+        lineWidth: 1,
+        pointSize: 2,
+        colors: ["006600"],
+        maxPixels: 1e9,
+        bestEffort: true
+      })
+}
+ 
+exports.chartSeries_NDVI = chartSeries_NDVI
+
+
+
+var chartSeries_cropland = function(varString, varStringAbbrev, geo, imageCollect) {
+
+  var imageCollect = imageCollect.map(function(image){return image.multiply(ee.Image.pixelArea()).divide(1000000).copyProperties(image, image.propertyNames())})
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.sum(), 100)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varStringAbbrev,  viewWindow: {min: 0}},
+        // hAxis: { title: 'Time' },
+        colors: ["006600"],
+        maxPixels: 1e20,
+        bestEffort: true
+      })
+      .setChartType('ColumnChart')
+  
+}
+exports.chartSeries_cropland = chartSeries_cropland
+
+
+
+var chartSeries_water = function(varString, varStringAbbrev, geo, imageCollect) {
+
+  var imageCollect = imageCollect.map(function(image){return image.eq(3).multiply(ee.Image.pixelArea()).copyProperties(image, image.propertyNames())}) 
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.sum(), 100)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varStringAbbrev}, // viewWindow: {min: 0} 
+        // hAxis: { title: 'Time' },
+        lineWidth: 1,
+        pointSize: 2,
+        colors: ['blue'],
+        // maxPixels: 1e9,
+        bestEffort: true
+      })
+  
+  
+}
+exports.chartSeries_water = chartSeries_water
+
+
+// For binary images (for the analysis scriot - long term wise surface water assets should be replaced with binary assets )
+var chartSeries_water_binary = function(varString, geo, imageCollect) {
+  
+var imageCollect = imageCollect.map(function(image){return image.multiply(ee.Image.pixelArea()).copyProperties(image, image.propertyNames())}) 
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.sum(), 100)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varString, viewWindow: {min: 0}}, 
+        hAxis: { title: 'Time' },
+        lineWidth: 1,
+        pointSize: 2,
+        colors: ['blue'],
+        maxPixels: 1e20,
+        bestEffort: true
+      })
+}
+exports.chartSeries_water_binary = chartSeries_water_binary
+
+var chartSeries_precip = function(varString, varStringAbbrev, geo, imageCollect) {
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.mean(), 250)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varStringAbbrev},
+        // hAxis: { title: 'Time' },
+        colors: ['darkblue'],
+        maxPixels: 1e20,
+        bestEffort: true
+      })
+      .setChartType('ColumnChart')
+  
+}
+
+exports.chartSeries_precip = chartSeries_precip
+
+
+
+var chartSeries_SPI = function(varString, varStringAbbrev, geo, imageCollect) {
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.mean(), 250)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varStringAbbrev, viewWindow: {min: -3, max: 3}}, 
+        // hAxis: { title: 'Time' },
+        colors: ['darkblue'],
+        bestEffort: true,
+        maxPixels: 1e20
+      })
+      .setChartType('ColumnChart')
+  
+}
+exports.chartSeries_SPI = chartSeries_SPI
+
+var chartSeries_LST = function(varString, varStringAbbrev, geo, imageCollect) {
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.mean(), 250)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varStringAbbrev, viewWindow: {min: -7, max: 7}}, 
+        // hAxis: { title: 'Time' },
+        colors: ['#DE1616'], 
+        bestEffort: true,
+        maxPixels: 1e20
+      })
+      .setChartType('ColumnChart')
+  
+}
+exports.chartSeries_LST = chartSeries_LST
+ 
+var chartSeries_GW = function(varString, varStringAbbrev, geo, imageCollect) {
+
+    return ui.Chart.image.series(imageCollect, geo, ee.Reducer.mean(), 10000)
+      .setOptions({
+        title: varString,
+        vAxis: {title: varStringAbbrev, viewWindow: {min: -200, max: 200}},  //  
+        hAxis: { title: 'Time' },//  , viewWindow: {min: 1483228800000, max: 1667260800000}}, to restrict for 2017-2022
+        lineWidth: 1,
+        pointSize: 2,
+        colors: ['blue'],
+        // trendlines: {0: { color: 'grey', opacity: 0.3, visibleInLegend: false}},// does not work: legend: 'Linear Trend' , , pointSize: 3
+        bestEffort: true,
+        maxPixels: 1e20,
+      })
+}
+exports.chartSeries_GW = chartSeries_GW
+
+
+
+
+
+
+exports.setPanel1 = function(panel,country, number) {
+
+  var description_label = ui.Label({value:'SELECT image date in drop-down menu\n'+
+                                          'SELECT admin area to plot time-series\n'+
+                                          'DRAW area on map to plot time-series\n'+
+                                          'CLICK on charts to download time-series (top right corner)\n'+
+                                          'PAN (hold click) and ZOOM to explore the datasets'
+  , style: {
+      position: 'bottom-center',
+      backgroundColor: 'ffffff99',
+        // fontWeight: 'light',
+      fontSize: '12px',
+      // margin: '0 0 4px 0',
+      padding: '2px',
+      whiteSpace: 'pre'}})
+  
+   panel.widgets().set(number, description_label);
+   
+   ui.root.add(panel);
+   
+   return panel
+}
+
+
+exports.setPanel2 = function(panel,country, number) {
+
+
+  var description_label = ui.Label({value:'Methodology and Data Description'
+  , style: {
+      position: 'bottom-center',
+      // backgroundColor: 'ffffff99',
+        // fontWeight: 'light',
+      fontSize: '12px',
+      // margin: '0 0 4px 0',
+      padding: '2px',
+      whiteSpace: 'pre'}}).setUrl('https://reach-syria.github.io/agri-app-public/')
+
+  
+   panel.widgets().set(number, description_label);
+   
+   ui.root.add(panel);
+   
+   return panel
+}
+
+
+
+var getMonth = function(dateMonthSelect) {
+   return dateMonthSelect.getValue()
+}
+
+exports.getMonth=getMonth
+
+
+var getYear = function(dateYearSelect) {
+   return dateYearSelect.getValue()
+}
+
+exports.getYear=getYear
+
+
+
+
+
+// // MONTH SELECT DROPDOWN WIDGET
+var createMonthDropDown = function(endYear, endMonth) {
+
+  // var months = ee.List.sequence(1, 12, 1)
+  
+  var months = ["1","2","3","4","5","6","7","8","9","10","11","12"]
+  
+  // print(months)
+  
+  var dateMonthSelect =  ui.Select({     
+      items: months,
+      placeholder: " "+endMonth,
+      // value: ee.String(ee.Number(endMonth)).getInfo(),
+      // onChange: showMosaic,
+      style: {width: '20%',backgroundColor: 'ffffff50', 
+      position:"top-center", padding: '2px 2px 2px 2px', margin: '0px 0px 0px 0px'   }
+    });
+  
+  return dateMonthSelect
+
+}
+
+exports.createMonthDropDown=createMonthDropDown
+
+
+
+// // YEAR SELECT DROPDOWN WIDGET
+var createYearDropDown = function(startYear, endYear) {
+
+  var years = ["2017","2018","2019","2020","2021", "2022", "2023", "2024"] 
+  
+  var dateYearSelect =  ui.Select({     
+      items: years,
+      placeholder: " " + endYear,
+      // value: "2021",
+      // onChange: showMosaic,
+      style: {width: '20%',backgroundColor: 'ffffff50', 
+      position:"top-center", padding: '2px 2px 2px 2px', margin: '20px 20px '   }
+    });
+  
+    return dateYearSelect
+}
+
+exports.createYearDropDown=createYearDropDown
+
+
+// // TIME PERIOD SELECT DROPDOWN WIDGET
+var createTimePeriodDropDown = function() {
+
+  var years = ["2017-2018","2018-2019","2019-2020","2020-2021","2021-2022"] 
+  
+  var Select =  ui.Select({     
+      items: years,
+      placeholder: "2021-2022",
+      // value: "2021",
+      // onChange: showMosaic,
+      style: {width: '20%',
+      position:"top-center", padding: '2px 2px 2px 2px', margin: '20px 20px '   }
+    });
+  
+    return Select
+}
+exports.createTimePeriodDropDown=createTimePeriodDropDown
+
+
+
+var createMapLegend = function() {
+
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 8px',
+    backgroundColor: 'ffffff99'
+  }
+});
+
+var legendTitle = ui.Label({
+  value: 'Legend',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '16px',
+    // margin: '0 0 4px 0',
+    padding: '0',
+    backgroundColor: 'ffffff00'
+    }
+});
+return legend.add(legendTitle);
+}
+
+exports.createMapLegend = createMapLegend
+
+
+
+var makeRow = function(color, name) {
+      var colorBox = ui.Label({
+        style: {
+          backgroundColor: '#' + color,
+          // Use padding to give the box height and width.
+          padding: '8px',
+          margin: '0 0 4px 0'
+          //backgroundColor: '#C0C0C0'
+        }
+      });
+      var description = ui.Label({
+        value: name,
+        style: {margin: '0 0 4px 6px',
+        backgroundColor: 'ffffff50'
+        }
+      });
+      return ui.Panel({
+        widgets: [colorBox, description],
+        layout: ui.Panel.Layout.Flow('horizontal')
+      });
+};
+
+exports.makeRow = makeRow
+
+
+
+var createTitle1 = function(title, backgroundcolor) {
+
+  return ui.Label({
+    value: title,
+    style: {
+      position: 'top-center',
+      backgroundColor: backgroundcolor,
+      fontWeight: 'bold',
+      fontSize: '20px',
+      // margin: '0 0 4px 0',
+      padding: '0px',
+    }
+  })
+}
+exports.createTitle1 = createTitle1
+
+
+var createTitle2 = function(title) {
+
+  return ui.Label({
+    value: title,
+    style: {
+      position: 'top-center',
+      // backgroundColor: 'ffffff70',
+        // fontWeight: 'light',
+      fontSize: '16px',
+      // margin: '0 0 4px 0',
+      padding: '0px',
+    }
+  })
+}
+exports.createTitle2 = createTitle2
+
+
+var createAndSetMapElements = function(title,legendPalette,NDVInames,size) {
+var legend = createMapLegend()
+for (var i = 0; i < size; i++) {
+  legend.add(makeRow(legendPalette[i], NDVInames[i]));
+  }  
+Map.add(legend);
+
+var title = createTitle(title)
+Map.add(title);
+}
+
+exports.createAndSetMapElements = createAndSetMapElements
+
+
+
+var createAndSetLegend = function(legendPalette,NDVInames,size) {
+var legend = createMapLegend()
+for (var i = 0; i < size; i++) {
+  legend.add(makeRow(legendPalette[i], NDVInames[i]));
+  }  
+Map.add(legend);
+}
+
+exports.createAndSetLegend = createAndSetLegend
+
+var getTopLayer = function(){
+   var topLayer = Map.layers().getJsArray() // filters top layer (admin 0, national border)
+    // .filter(function(f) { return f.getShown() })
+    .slice(-1)[0]
+    return topLayer
+}
+exports.getTopLayer = getTopLayer
+
+var getTopWidget = function(){
+   var topWidget = Map.widgets().getJsArray()
+    // .filter(function(f) { return f.getShown() })
+    .slice(-1)[0]
+    return topWidget
+}
+exports.getTopWidget = getTopWidget
+
+var empty = ee.Image().byte();
+
+var createAndSetLayer = function(feature, key, adm) {
+    // print('layers',Map.layers())  
+    var topLayer = getTopLayer()
+    // print('topLayer',topLayer)
+    var feature = feature.union();
+    Map.centerObject(feature)
+    // print('feature',feature)
+    var outline = empty.paint({
+    featureCollection: feature,
+    color: 1,
+    width: 2
+    });
+    
+    var layer = ui.Map.Layer(outline, {palette: '202020'}, adm+key, true, 0.9);
+    var number_of_widgets = Map.widgets().length() // determines which dataseries we are looking at
+    if (number_of_widgets == 3){ // water and NDVI (3 widgets)
+      Map.layers().set(2, layer)
+      // print('layers after setting admin to layer 2',Map.layers())
+      
+      // set toplayer only if it is not in the layer list yet, otherwise it throws en error and there will be a bug (the same layer can't be overwritten)
+      if(Map.layers().length() == 3){ 
+        Map.layers().set(3, topLayer)
+        // print('layers after setting national border to layer 3',Map.layers())
+      }
+    }else{ // cropland change (only 2 widgets, legend and select button)
+       Map.layers().set(1, layer)
+       if(Map.layers().length() == 2){ 
+         Map.layers().set(2, topLayer) 
+         
+       } 
+    }
+    // print('layers',Map.layers())
+}
+
+exports.createAndSetLayer = createAndSetLayer
+
+ 
+var updateWidgets = function(admAttributeNames, placeHolders, level, imageCollects, admFeatures, panel, admAreaPanel ) {
+  // print('updating widgests - level ', level)
+  if(level ===1){ // if admin1 selected, update admin 2 and admin 3
+  var selectAdm2 = buildAdmAreaWidget(admAttributeNames, placeHolders, 2, imageCollects, admFeatures, panel, admAreaPanel) // select button
+  admAreaPanel.widgets().set(1, selectAdm2);
+  
+  var selectAdm3 = buildAdmAreaWidget(admAttributeNames, placeHolders, 3, imageCollects, admFeatures, panel, admAreaPanel) // select button
+      admAreaPanel.widgets().set(2, selectAdm3);
+  }
+  else if(level ===2){  // if admin2 selected, update admin 3
+      var selectAdm3 = buildAdmAreaWidget(admAttributeNames, placeHolders, 3, imageCollects, admFeatures, panel, admAreaPanel) // select button
+      admAreaPanel.widgets().set(2, selectAdm3);
+  
+  }
+} 
+ 
+ 
+var buildAdmAreaWidget = function(admAttributeNames, placeHolders, level, imageCollects, admFeatures, panel, admAreaPanel) {
+var index = level -1 
+var admAttributeName = admAttributeNames[index] // ["admin1Name","admin2Name","admin3Name"]
+var placeHolder = placeHolders[index] // ['Select Governorate','Select District','Select Sub-district']
+
+var admAreaNames = admFeatures.aggregate_array(admAttributeName).distinct().sort().getInfo() // this slows down the process / makes it buggy
+
+// Zoom functions to built new charts, zoom to admin area (and update the other select buttons if admin 1 or 2 is selected)
+// Functions will only be called onChange of ui.Select select button.
+// key is the onChange parameter for ui.Select (the select button) 
+var zoomToAdm1 = function(key) { // key is the name of the admin area - the input by the user as onChange variable 
+    var feature = admFeatures.filter(ee.Filter.eq(admAttributeName, key)) // feature to be filtered from the admin1 fc
+    
+    // Update the admin2 and admin3 areas that can be selected
+    updateWidgets(admAttributeNames, placeHolders, level, imageCollects, feature, panel, admAreaPanel );
+    
+    // print('zoomToAdmin, level', level)
+    createAndSetLayer(feature, key, "Governorate: ")
+    
+    var chart = chartSeries_NDVI("Normalized Difference Vegetation Index","NDVI",feature,imageCollects[0])
+    panel.widgets().set(5, chart);
+    var chart = chartSeries_cropland("Cropland Area","Cropland (km²)",feature,imageCollects[1])
+    panel.widgets().set(6, chart);
+    var chart = chartSeries_water("Surface Water Area", "Surface Water (m²)", feature,imageCollects[2])
+    panel.widgets().set(7, chart);
+    var chart = chartSeries_GW("Groundwater Storage Anomaly", "GWS Anomaly (mm)", feature,imageCollects[3])
+    panel.widgets().set(8, chart);
+    var chart = chartSeries_precip("Precipitation", "Precipitation (mm)",feature,imageCollects[4])
+    panel.widgets().set(9, chart);
+    var chart = chartSeries_SPI("Standard Precipitation Index", "SPI", feature,imageCollects[5])
+    panel.widgets().set(10, chart); 
+    var chart = chartSeries_LST("Land Surface Temperature Anomaly", "LST (°C)", feature,imageCollects[6])
+    panel.widgets().set(11, chart); 
+    
+  }
+  
+
+var zoomToAdm2 = function(key) {
+  var feature = admFeatures.filter(ee.Filter.eq(admAttributeName, key))
+  // Update admin3 areas that can be selected
+    updateWidgets(admAttributeNames, placeHolders, level, imageCollects, feature,panel, admAreaPanel );
+    
+    // print('zoomToAdmin, level', level)
+    createAndSetLayer(feature, key, "District: ")
+
+    var chart = chartSeries_NDVI("Normalized Difference Vegetation Index","NDVI",feature,imageCollects[0])
+    panel.widgets().set(5, chart);
+    var chart = chartSeries_cropland("Cropland Area","Cropland (km²)",feature,imageCollects[1])
+    panel.widgets().set(6, chart);
+    var chart = chartSeries_water("Surface Water Area", "Surface Water (m²)",feature,imageCollects[2])
+    panel.widgets().set(7, chart);
+    var chart = chartSeries_GW("Groundwater Storage Anomaly", "GWS Anomaly (mm)",feature,imageCollects[3])
+    panel.widgets().set(8, chart);
+    var chart = chartSeries_precip("Precipitation", "Precipitation (mm)",feature,imageCollects[4])
+    panel.widgets().set(9, chart);
+    var chart = chartSeries_SPI("Standard Precipitation Index", "SPI",feature,imageCollects[5])
+    panel.widgets().set(10, chart);
+    var chart = chartSeries_LST("Land Surface Temperature","LST (°C)",feature,imageCollects[6])
+    panel.widgets().set(11, chart); 
+
+}
+
+
+var zoomToAdm3 = function(key) {
+  var feature = admFeatures.filter(ee.Filter.eq(admAttributeName, key))
+  
+  // print('zoomToAdmin, level', level)
+    createAndSetLayer(feature, key, "Sub-district: ")
+
+    var chart = chartSeries_NDVI("Normalized Difference Vegetation Index","NDVI",feature,imageCollects[0])
+    panel.widgets().set(5, chart);
+    var chart = chartSeries_cropland("Cropland Area","Cropland (km²)",feature,imageCollects[1])
+    panel.widgets().set(6, chart);
+    var chart = chartSeries_water("Surface Water Area", "Surface Water (m²)",feature,imageCollects[2])
+    panel.widgets().set(7, chart);
+    var chart = chartSeries_GW("Groundwater Storage Anomaly", "GWS Anomaly (mm)",feature,imageCollects[3])
+    panel.widgets().set(8, chart);
+    var chart = chartSeries_precip("Precipitation", "Precipitation (mm)",feature,imageCollects[4])
+    panel.widgets().set(9, chart);
+    var chart = chartSeries_SPI("Standard Precipitation Index", "SPI",feature,imageCollects[5])
+    panel.widgets().set(10, chart); 
+    var chart = chartSeries_LST("Land Surface Temperature Anomaly", "LST Anomaly (°C)",feature,imageCollects[6])
+    panel.widgets().set(11, chart); 
+   
+
+
+}
+
+// Select buttons
+if( level==1){
+  return ui.Select({
+  items: admAreaNames,
+  placeholder: placeHolder,
+  onChange: zoomToAdm1
+}); 
+}
+else if( level ==2){
+    return ui.Select({
+  items: admAreaNames,
+  placeholder: placeHolder,
+  onChange: zoomToAdm2
+});
+}
+else if( level ==3){
+    return ui.Select({
+  items: admAreaNames,
+  placeholder: placeHolder,
+  onChange: zoomToAdm3
+});
+}
+
+}
+
+exports.buildAdmAreaWidget = buildAdmAreaWidget
+ 
+var check_if_adminLayer = function(ui_data_ActiveList){
+  var adminActivated = false
+  var layer = null
+  
+  // loop through activeList
+  ui_data_ActiveList = ui_data_ActiveList.map(function(x){
+    var name = x.get('name').substring(0,3)
+
+    if (name == 'Gov' || name == 'Dis' || name == 'Sub' || name == 'Sel' === true){
+      adminActivated = true
+      layer = x
+    }
+    return null
+    
+  })
+  
+  return [adminActivated, layer] 
+}
+exports.check_if_adminLayer = check_if_adminLayer
+
+  
+var clearGeometry =  function(drawingTools) {
+  if (drawingTools.layers().length() >= 1) {
+var drawingLayers = drawingTools.layers();
+  drawingLayers.get(0).geometries().remove(drawingLayers.get(0).geometries().get(0));
+  }
+// var layers = drawingTools.layers();
+//   layers.get(0).geometries().remove(layers.get(0).geometries().get(0));
+}
+exports.clearGeometry = clearGeometry
+
+
+
+var drawPolygon = function (drawingTools) {
+  // var layers = Map.layers()
+  // var adminActivated = check_if_adminLayer(layers)
+  
+  var topLayer = getTopLayer()
+  drawingTools.setShape('polygon');
+  drawingTools.draw();
+  // print(Map.layers())
+
+  var geom = drawingTools.layers().get(0).geometries().get(0) //ee.Geometry
+
+//   print(ee.Algorithms.ObjectType( geom))
+// print(geom)
+// cast not possible
+  // var outline = empty.paint({
+  //   featureCollection: ee.FeatureCollection(ee.Feature(ee.Geometry(geom))),
+  //   color: 1,
+  //   width: 2
+  //   });
+  // var layer = ui.Map.Layer(outline, {}, 'Selected area', true);
+  
+  var layer = ui.Map.Layer(geom, {palette: '202020'}, 'Selected area', true, 0.65);
+    
+  var number_of_widgets = Map.widgets().length() // determines which dataseries we are looking at
+  if (number_of_widgets == 3){ // water and NDVI (3 widgets)
+    Map.layers().set(2, layer)
+    clearGeometry(drawingTools)
+    Map.layers().set(3, topLayer)
+    
+  }else{ // cropland change (only 2 widgets, legend and select button)
+    Map.layers().set(1, layer)
+    clearGeometry(drawingTools)
+    Map.layers().set(2, topLayer)
+  }
+  // clearGeometry(drawingTools);
+  
+  // print('end of function', Map.layers())
+}
+
+exports.drawPolygon = drawPolygon
+
+
+var getMapScale = function() {
+  var mapScale = Map.getScale();
+  if(mapScale > 600)
+  {var scale = 500}
+  else if(mapScale > 300 && mapScale < 600)
+    {var scale = 300}
+  else if (mapScale > 100 && mapScale < 300)
+    {var scale = 100}
+  else if (mapScale > 50 && mapScale < 100)
+    {var scale = 50}
+  else 
+    {scale =10}
+
+  return scale;
+
+}
+
+var configureDrawingTools = function(drawingTools){
+drawingTools.setShown(false);
+
+var dummyGeo = ui.Map.GeometryLayer({geometries: null, name: 'geometry', color: 'ffffff'});
+drawingTools.layers().add(dummyGeo)
+}
+
+exports.configureDrawingTools = configureDrawingTools
+exports.getMapScale = getMapScale
+ 

@@ -1,0 +1,226 @@
+
+exports.generateCollectionFromAssets = function(imageNameBase,startYear,endYear,endMonth, divide){
+  // Import images from assets as a list
+  var imageNameList =  ee.List([]);
+  var i,j;
+  for (j= startYear; j <= endYear; j++){
+    for (i = 1; i < 13; i++) {
+      if(j<endYear ||(j == endYear && i <= endMonth)){                                
+      var file_name = imageNameBase.concat(j).concat("_").concat(i);
+      var image = ee.Image(file_name)
+                .set("month", i)
+                .set("year", j)
+    imageNameList = imageNameList.add(image)}
+  }}
+
+  // Creating the slider collection and setting DATE property for collections
+  var slider_collect = ee.ImageCollection(imageNameList)
+  var divideNumber = 255
+  
+  return slider_collect.map(function(image){
+         var m = image.get("month")
+         var y= image.get("year")
+         if(!divide){ divideNumber = 1 }
+         return image.toFloat().divide(divideNumber).set('system:time_start', ee.Date.fromYMD(y, m, 1)).set("month",m).set("year",y);
+       })     
+
+}
+
+exports.generateCollectionFromAssets_startM = function(imageNameBase,startYear, startMonth, endYear,endMonth, divide){
+  // Import images from assets as a list
+  var imageNameList =  ee.List([]);
+  var i,j;
+  for (j= startYear; j <= endYear; j++){
+    for (i = 1; i < 13; i++) {
+      if((j<endYear && j> startYear)  ||(j == endYear && i <= endMonth) || (j == startYear && i >= startMonth)){                                
+      var file_name = imageNameBase.concat(j).concat("_").concat(i);
+      var image = ee.Image(file_name)
+                .set("month", i)
+                .set("year", j)
+    imageNameList = imageNameList.add(image)}
+  }}
+
+  // Creating the slider collection and setting DATE property for collections
+  var slider_collect = ee.ImageCollection(imageNameList)
+  var divideNumber = 255
+  
+  return slider_collect.map(function(image){
+         var m = image.get("month")
+         var y= image.get("year")
+         if(!divide){ divideNumber = 1 }
+         return image.toFloat().divide(divideNumber).set('system:time_start', ee.Date.fromYMD(y, m, 1).millis()).set("month",m).set("year",y);
+       })     
+
+}
+
+
+exports.generateCollection_monthly_hist = function(imageNameBase){
+ var months = [1,2,3,4,5,6,7,8,9,10,11,12]
+ return ee.ImageCollection.fromImages(months.map(function (i) { 
+    return ee.Image(imageNameBase+i).set('system:time_start', ee.Date.fromYMD(1981, i, 1))
+}))
+}
+
+exports.generateCollectionFromAssets_SPImock = function(imageNameBase,startYear,endYear,endMonth, divide){
+  // Import images from assets as a list
+  var imageNameList =  ee.List([]);
+  var i,j;
+  var file_name;
+  for (j= startYear; j <= endYear; j++){
+    for (i = 1; i < 13; i++) {
+      if(j<endYear ||(j == endYear && i <= endMonth)){    
+        if (i >= 6 && i <= 9){
+          file_name = imageNameBase.concat("mock");
+          
+        }
+        else{ file_name = imageNameBase.concat(j).concat("_").concat(i); }
+      
+      var image = ee.Image(file_name)
+                .set("month", i)
+                .set("year", j)
+    imageNameList = imageNameList.add(image)}
+  }}
+
+  // Creating the slider collection and setting DATE property for collections
+  var slider_collect = ee.ImageCollection(imageNameList)
+  var divideNumber = 255
+  
+  return slider_collect.map(function(image){
+         var m = image.get("month")
+         var y= image.get("year")
+         if(!divide){ divideNumber = 1 }
+         return image.toFloat().divide(divideNumber).set('system:time_start', ee.Date.fromYMD(y, m, 1)).set("month",m).set("year",y);
+       })     
+
+}
+
+
+exports.generateCollectionSPI = function (imageNameBase, timestep, startYear, endYear, startMonth, endMonth){
+
+  var imageNameList =  ee.List([]);
+  var i,j;
+  for (j= startYear; j <= endYear; j++){
+    for (i = startMonth; i < 13; i += timestep) {
+      
+      if(j<endYear ||(j == endYear && i <= endMonth)){     
+        
+        // print(i, j)
+        var file_name = imageNameBase.concat(i).concat("_").concat(j);
+        // print(file_name)
+        var image = ee.Image(file_name)
+                .set("end_month", i)
+                .set("year", j)
+    imageNameList = imageNameList.add(image)}
+    
+  }}
+  return ee.ImageCollection(imageNameList)
+
+   
+}
+
+
+exports.generateCollectionCropland = function (imageNameBase, startYear, endYear){
+  var years = [];
+  for (var i = startYear; i <= endYear; i++) { years.push(i); }
+  
+  var indices = []
+  for (var j = 0; j < years.length; j++) { indices.push(j); }
+  
+  return ee.ImageCollection.fromImages(indices.map(function (i) { 
+    return ee.Image(imageNameBase+(years[i]-1)+'_'+years[i]).set('system:time_start', ee.Date(ee.Number(years[i]).format()))
+  }))
+}
+
+
+exports.generateCollectionCropland_change = function (imageNameBase){
+  var crop_change_17_18 = ee.Image(imageNameBase+'1617_1718').set('year_before', '2017')
+  var crop_change_18_19 = ee.Image(imageNameBase+'1718_1819').set('year_before', '2018')
+  var crop_change_19_20 = ee.Image(imageNameBase+'1819_1920').set('year_before', '2019')
+  var crop_change_20_21 = ee.Image(imageNameBase+'1920_2021').set('year_before', '2020')
+  var crop_change_21_22 = ee.Image(imageNameBase+'2021_2122').set('year_before', '2021')
+  
+  return ee.ImageCollection([crop_change_17_18, crop_change_18_19, crop_change_19_20, crop_change_20_21,  crop_change_21_22])
+}
+
+exports.generateCollection_annual= function(imageNameBase, startYear, endYear){
+  var years = [];
+  for (var i = startYear; i <= endYear; i++) { years.push(i); }
+  
+  var indices = []
+  for (var j = 0; j < years.length; j++) { indices.push(j); }
+  
+  return ee.ImageCollection.fromImages(indices.map(function (i) { 
+    return ee.Image(imageNameBase+years[i]).set('system:time_start', ee.Date.fromYMD(years[i], 1, 1))
+    }))
+}
+
+
+exports.generate_WAPOR_monthlyColl_GCS = function(startYear, endYear, endMonth, scale, geom, uriBase, filePrefix, out_BandName){
+  
+  var eeList =  ee.List([]);
+  var i,j;
+  var i_str;
+  
+  for (j= startYear; j <= endYear; j++){
+      for (i = 1; i <= 12; i++) {
+        if(j<endYear ||(j == endYear && i <= endMonth)){
+          
+          if (i < 10){ i_str = '0' + i }
+          else { i_str = i }
+            
+          var j_str = j.toString().slice(-2)
+          
+          var file_name = uriBase.concat(filePrefix).concat(j_str).concat(i_str).concat('M.tif')
+          var image = ee.Image.loadGeoTIFF(file_name)
+                    .clip(geom)
+          // var image = image.updateMask(image.eq(-9999)) // according to count() there are no noData values
+                  .multiply(scale) // has to be converted by * 0.1
+                  .set("month", i)
+                  .set("year", j)
+                  .set('file_name', filePrefix.concat(j_str).concat(i_str).concat('M.tif'))
+                  .set('system:time_start', ee.Date.parse('YYYY-MM', j+'-'+i_str).millis())
+                  
+        eeList = eeList.add(image)
+        }
+      }
+  }
+  return  ee.ImageCollection(eeList).select(['B0'],[out_BandName]);
+
+}
+
+
+
+exports.generate_WAPOR_dekadColl_GCS = function(startYear, endYear, endDekad, geom, uriBase, filePrefix, out_BandName){
+  
+  // DOES not need to be converted as compared to NPP 100m and AETI 100m, as T is a dekadal product and would have to be multiplied by 10 (10 days) anyway - 0.1*10 = 1
+  var eeList =  ee.List([]);
+  var i,j;
+  var i_str;
+  var bool;
+  
+  for (j= startYear; j <= endYear; j++){
+    var month = 1;
+    for (i = 1; i <= 36; i++) {
+      if(j<endYear ||(j == endYear && i <= endDekad)){
+        if (i < 10){ i_str = '0' + i }
+        else { i_str = i }
+        var j_str = j.toString().slice(-2)
+        
+        var file_name = uriBase.concat(filePrefix).concat(j_str).concat(i_str).concat('.tif')
+        var image = ee.Image.loadGeoTIFF(file_name)
+                  .clip(geom)
+        // var image = image.updateMask(image.eq(255))
+                .set("dekad", i)
+                .set("month", month)
+                .set("year", j)
+                .set('file_name', filePrefix.concat(j_str).concat(i_str).concat('.tif'))
+                .set('system:time_start', ee.Date.parse('YYYY-MM', j+'-'+month).millis())
+                
+      eeList = eeList.add(image)
+      }
+      bool = i % 3 === 0;
+      if (bool) {month +=1}
+    }
+  }
+  return  ee.ImageCollection(eeList).select(['B0'],[out_BandName]);
+} 
